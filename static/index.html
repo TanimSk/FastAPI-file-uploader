@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Upload with Compression</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 20px;
+            max-width: 500px;
+            background-color: #f4f4f4;
+        }
+        h2 {
+            text-align: center;
+        }
+        form {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+        label, input, select {
+            display: block;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        button {
+            background: #007BFF;
+            color: white;
+            border: none;
+            padding: 10px;
+            cursor: pointer;
+            width: 100%;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        #response {
+            margin-top: 15px;
+            padding: 10px;
+            background: #fff;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Upload File with Compression</h2>
+    <form id="uploadForm">
+        <label for="file">Select a File:</label>
+        <input type="file" id="file" required>
+
+        <label for="compression">Compression Level (1-100):</label>
+        <input type="number" id="compression" min="1" max="100" value="50">
+
+        <label for="path">Storage Path (Optional):</label>
+        <input type="text" id="path" placeholder="e.g., images/uploads/">
+
+        <button type="submit">Upload</button>
+    </form>
+
+    <div id="response"></div>
+
+    <script>
+        document.getElementById("uploadForm").addEventListener("submit", async function(event) {
+            event.preventDefault();
+            
+            const fileInput = document.getElementById("file");
+            const compressionInput = document.getElementById("compression");
+            const pathInput = document.getElementById("path");
+
+            if (!fileInput.files.length) {
+                alert("Please select a file to upload.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+            
+            let url = "http://127.0.0.1:8000/upload/";
+
+            const compressionLevel = compressionInput.value;
+            const storagePath = pathInput.value.trim();
+
+            if (compressionLevel) {
+                url += `?compression_level=${compressionLevel}`;
+            }
+            if (storagePath) {
+                url += `${compressionLevel ? "&" : "?"}path=${encodeURIComponent(storagePath)}`;
+            }
+
+            try {
+                const response = await fetch(url, {
+                    method: "POST",
+                    body: formData
+                });
+
+                const result = await response.json();
+                document.getElementById("response").innerHTML = `<strong>Response:</strong> <pre>${JSON.stringify(result, null, 2)}</pre>`;
+            } catch (error) {
+                document.getElementById("response").innerHTML = `<strong>Error:</strong> ${error.message}`;
+            }
+        });
+    </script>
+
+</body>
+</html>
