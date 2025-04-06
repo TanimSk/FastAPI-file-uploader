@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 API_KEY = os.getenv("KEY")
+BASE_URL = os.getenv("BASE_URL")
 
 app = FastAPI()
 
@@ -106,7 +107,7 @@ async def upload_file(
 
     response_data = {
         "filename": file.filename,
-        "stored_path": file_path,
+        "stored_path": f"{BASE_URL}/file_path",
         "compression_started": False,
     }
 
@@ -125,7 +126,7 @@ async def upload_file(
             )
 
         response_data["compression_started"] = True
-        response_data["compressed_path"] = compressed_path
+        response_data["compressed_path"] = f"{BASE_URL}/compressed_path"
 
     # If compression is not enabled, store the file without compression
     else:
