@@ -6,9 +6,13 @@ import ffmpeg
 import os
 import shutil
 import tempfile
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.middleware.cors import CORSMiddleware  # Import CORS middleware
+from dotenv import load_dotenv
 
+
+load_dotenv()
+API_KEY = os.getenv("KEY")
 
 app = FastAPI()
 
@@ -80,7 +84,16 @@ async def upload_file(
         None,
         description="Path to store the file in (relative to the uploads directory).",
     ),
+    key: str = Query(
+        None,
+        description="API key",
+    ),
 ):
+    # Validate API Key
+    if key != API_KEY:
+        return Response(content="Invalid API Key!", media_type="text/plain", status_code=403)
+    
+    
     """Upload a file and store it, with optional compression in the background."""
     folder_path = os.path.join(UPLOAD_DIR, path) if path else UPLOAD_DIR
     os.makedirs(folder_path, exist_ok=True)  # Ensure the directory exists
