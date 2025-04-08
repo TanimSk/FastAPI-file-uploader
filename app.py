@@ -112,7 +112,7 @@ async def upload_file(
     }
 
     # If compression is enabled, process in the background
-    if compression_level is not None:
+    if compression_level is not None and file.filename.lower().endswith((".jpg", ".jpeg", ".png", ".mp4", ".avi", ".mkv")):
         compressed_path = os.path.join(folder_path, f"compressed_{file.filename}")
 
         if file.filename.lower().endswith((".jpg", ".jpeg", ".png")):
