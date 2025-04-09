@@ -9,6 +9,7 @@ import tempfile
 from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.middleware.cors import CORSMiddleware  # Import CORS middleware
 from dotenv import load_dotenv
+import uuid
 
 
 load_dotenv()
@@ -99,11 +100,17 @@ async def upload_file(
     folder_path = os.path.join(UPLOAD_DIR, path) if path else UPLOAD_DIR
     os.makedirs(folder_path, exist_ok=True)  # Ensure the directory exists
 
-    file_path = os.path.join(folder_path, file.filename)
+    file_path = os.path.join(folder_path, f"{uuid.uuid4()}_{file.filename}")
+    await file.seek(0)
 
     # Save file immediately
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    with open(file_path, 'wb') as f:
+        while contents := await file.read(1024 * 1024):
+            if contents:
+                f.write(contents)
+            else:
+                break  # Stop when no more content is available
+
 
     response_data = {
         "filename": file.filename,
@@ -113,7 +120,7 @@ async def upload_file(
 
     # If compression is enabled, process in the background
     if compression_level is not None and file.filename.lower().endswith((".jpg", ".jpeg", ".png", ".mp4", ".avi", ".mkv")):
-        compressed_path = os.path.join(folder_path, f"compressed_{file.filename}")
+        compressed_path = os.path.join(folder_path, f"compressed_{uuid.uuid4()}{file.filename}")
 
         if file.filename.lower().endswith((".jpg", ".jpeg", ".png")):
             background_tasks.add_task(
@@ -127,12 +134,6 @@ async def upload_file(
 
         response_data["compression_started"] = True
         response_data["compressed_path"] = f"{BASE_URL}/{compressed_path}"
-
-    # If compression is not enabled, store the file without compression
-    else:
-        # Save directly without compression
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
 
     return response_data
 
