@@ -38,7 +38,13 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 def compress_image(image_bytes: bytes, output_path: str, quality: int):
     """Compress an image and save it to disk."""
     img = Image.open(BytesIO(image_bytes))
-    img.save(output_path, format="JPEG", quality=quality)
+    # Fix: Convert image if it has an alpha channel
+    if img.mode in ("RGBA", "P"):
+        img = img.convert("RGB")
+    # Ensure quality is within the valid range
+    quality = max(1, min(quality, 100))
+    # Save the image with the specified quality
+    img.save(output_path, format="JPEG", quality=quality)    
 
 
 def compress_video(video_bytes: bytes, output_path: str, bitrate: str):
@@ -59,6 +65,8 @@ def background_compress_image(input_path: str, output_path: str, quality: int):
     with open(input_path, "rb") as f:
         image_bytes = f.read()
     compress_image(image_bytes, output_path, quality)
+    # Remove the original file after compression
+    os.remove(input_path)
 
 
 def background_compress_video(input_path: str, output_path: str, bitrate: str):
@@ -133,7 +141,9 @@ async def upload_file(
             )
 
         response_data["compression_started"] = True
-        response_data["compressed_path"] = f"{BASE_URL}/{compressed_path}"
+
+        # Update the stored path to the compressed file
+        response_data["stored_path"] = f"{BASE_URL}/{compressed_path}"
 
     return response_data
 
