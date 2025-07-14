@@ -103,49 +103,55 @@ async def upload_file(
     if key != API_KEY:
         return Response(content="Invalid API Key!", media_type="text/plain", status_code=403)
     
+    try:
+        """Upload a file and store it, with optional compression in the background."""
+        folder_path = os.path.join(UPLOAD_DIR, path) if path else UPLOAD_DIR
+        os.makedirs(folder_path, exist_ok=True)  # Ensure the directory exists
+
+        file_path = os.path.join(folder_path, f"{uuid.uuid4()}_{file.filename}")
+        await file.seek(0)
+
+        # Save file immediately
+        with open(file_path, 'wb') as f:
+            while contents := await file.read(1024 * 1024):
+                if contents:
+                    f.write(contents)
+                else:
+                    break  # Stop when no more content is available
+
+
+        response_data = {
+            "filename": file.filename,
+            "stored_path": f"{BASE_URL}/{file_path}",
+            "compression_started": False,
+        }
+
+        # If compression is enabled, process in the background
+        if compression_level is not None and file.filename.lower().endswith((".jpg", ".jpeg", ".png", ".mp4", ".avi", ".mkv")):
+            compressed_path = os.path.join(folder_path, f"compressed_{uuid.uuid4()}{file.filename}")
+
+            if file.filename.lower().endswith((".jpg", ".jpeg", ".png")):
+                background_tasks.add_task(
+                    background_compress_image, file_path, compressed_path, compression_level
+                )
+            elif file.filename.lower().endswith((".mp4", ".avi", ".mkv")):
+                video_bitrate = f"{int(compression_level * 10)}k"
+                background_tasks.add_task(
+                    background_compress_video, file_path, compressed_path, video_bitrate
+                )
+
+            response_data["compression_started"] = True
+
+            # Update the stored path to the compressed file
+            response_data["stored_path"] = f"{BASE_URL}/{compressed_path}"
+
+        return response_data
     
-    """Upload a file and store it, with optional compression in the background."""
-    folder_path = os.path.join(UPLOAD_DIR, path) if path else UPLOAD_DIR
-    os.makedirs(folder_path, exist_ok=True)  # Ensure the directory exists
-
-    file_path = os.path.join(folder_path, f"{uuid.uuid4()}_{file.filename}")
-    await file.seek(0)
-
-    # Save file immediately
-    with open(file_path, 'wb') as f:
-        while contents := await file.read(1024 * 1024):
-            if contents:
-                f.write(contents)
-            else:
-                break  # Stop when no more content is available
-
-
-    response_data = {
-        "filename": file.filename,
-        "stored_path": f"{BASE_URL}/{file_path}",
-        "compression_started": False,
-    }
-
-    # If compression is enabled, process in the background
-    if compression_level is not None and file.filename.lower().endswith((".jpg", ".jpeg", ".png", ".mp4", ".avi", ".mkv")):
-        compressed_path = os.path.join(folder_path, f"compressed_{uuid.uuid4()}{file.filename}")
-
-        if file.filename.lower().endswith((".jpg", ".jpeg", ".png")):
-            background_tasks.add_task(
-                background_compress_image, file_path, compressed_path, compression_level
-            )
-        elif file.filename.lower().endswith((".mp4", ".avi", ".mkv")):
-            video_bitrate = f"{int(compression_level * 10)}k"
-            background_tasks.add_task(
-                background_compress_video, file_path, compressed_path, video_bitrate
-            )
-
-        response_data["compression_started"] = True
-
-        # Update the stored path to the compressed file
-        response_data["stored_path"] = f"{BASE_URL}/{compressed_path}"
-
-    return response_data
+    except Exception as e:
+        # write error to a log file
+        with open("error.log", "a") as log_file:
+            log_file.write(f"Error: {str(e)}\n")
+        return Response(content=f"An error occurred: {str(e)}", media_type="text/plain", status_code=500)
 
 
 if __name__ == "__main__":
