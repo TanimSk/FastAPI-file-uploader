@@ -15,7 +15,7 @@ Description=FastAPI File Uploader
 After=network.target
 
 [Service]
-User=ongshak
+User=<username>
 Group=www-data
 Type=simple
 WorkingDirectory=/home/<username>/FastAPI-file-uploader
