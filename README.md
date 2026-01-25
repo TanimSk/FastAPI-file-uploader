@@ -36,23 +36,23 @@ nginx config:
 ```nginx
 server {
 	server_name transfer.ongshak.com;
-  sendfile on;
+  	sendfile on;
 
 	# Serve files dynamically from the specified directory
 	location /static/ {
-    alias /home/ongshak/static/;
-    autoindex off; # Optional: Prevent directory listing
-  }
+    	alias /home/ongshak/static/;
+    	autoindex off; # Optional: Prevent directory listing
+  	}
 
 
 	location /uploads/ {
-    alias /home/ongshak/FastAPI-file-uploader/uploads/;
-    autoindex off; # Optional: Prevent directory listing
-    add_header Cache-Control "public";
-  }
+    	alias /home/ongshak/FastAPI-file-uploader/uploads/;
+    	autoindex off; # Optional: Prevent directory listing
+    	add_header Cache-Control "public";
+  	}
 
 
-  # Fallback for all other paths
+  	# Fallback for all other paths
 	location / {
 		proxy_pass http://localhost:8141;
 		proxy_set_header Host $host;
