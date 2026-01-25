@@ -35,18 +35,11 @@ WantedBy=multi-user.target
 nginx config:
 ```nginx
 server {
-	server_name transfer.ongshak.com;
+	server_name <domain_name>;
   	sendfile on;
 
-	# Serve files dynamically from the specified directory
-	location /static/ {
-    	alias /home/ongshak/static/;
-    	autoindex off; # Optional: Prevent directory listing
-  	}
-
-
 	location /uploads/ {
-    	alias /home/ongshak/FastAPI-file-uploader/uploads/;
+    	alias /home/<username>/FastAPI-file-uploader/uploads/;
     	autoindex off; # Optional: Prevent directory listing
     	add_header Cache-Control "public";
   	}
