@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.middleware.cors import CORSMiddleware  # Import CORS middleware
 from dotenv import load_dotenv
 import uuid
+import re
 
 
 load_dotenv()
@@ -33,6 +34,11 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(STATIC_DIR, exist_ok=True)
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+def normalize_filename(filename: str) -> str:
+    """Normalize uploaded filenames: strip any path and replace whitespace with underscores."""
+    return re.sub(r"\s+", "_", os.path.basename(filename or "").strip())
 
 
 def compress_image(image_bytes: bytes, output_path: str, quality: int):
@@ -78,8 +84,10 @@ def background_compress_video(input_path: str, output_path: str, bitrate: str):
 
 @app.get("/", response_class=HTMLResponse)
 async def serve_html():
-    """Serve the HTML file for the upload form."""
-    return FileResponse("static/index.html")
+    """Serve the upload form with the backend URL injected from the environment."""
+    with open(os.path.join(STATIC_DIR, "index.html"), encoding="utf-8") as f:
+        html = f.read()
+    return HTMLResponse(html.replace("__BASE_URL__", BASE_URL or ""))
 
 
 @app.post("/upload/")
@@ -108,7 +116,8 @@ async def upload_file(
         folder_path = os.path.join(UPLOAD_DIR, path) if path else UPLOAD_DIR
         os.makedirs(folder_path, exist_ok=True)  # Ensure the directory exists
 
-        file_path = os.path.join(folder_path, f"{uuid.uuid4()}_{file.filename}")
+        normalized_filename = normalize_filename(file.filename)
+        file_path = os.path.join(folder_path, f"{uuid.uuid4()}_{normalized_filename}")
         await file.seek(0)
 
         # Save file immediately
@@ -128,7 +137,9 @@ async def upload_file(
 
         # If compression is enabled, process in the background
         if compression_level is not None and file.filename.lower().endswith((".jpg", ".jpeg", ".png", ".mp4", ".avi", ".mkv")):
-            compressed_path = os.path.join(folder_path, f"compressed_{uuid.uuid4()}{file.filename}")
+            compressed_path = os.path.join(
+                folder_path, f"compressed_{uuid.uuid4()}_{normalized_filename}"
+            )
 
             if file.filename.lower().endswith((".jpg", ".jpeg", ".png")):
                 background_tasks.add_task(
