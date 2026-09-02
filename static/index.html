@@ -52,6 +52,18 @@
             white-space: pre-wrap;
             word-break: break-all;
         }
+        .upload-item {
+            padding: 8px 0;
+        }
+        .upload-item + .upload-item {
+            border-top: 1px solid #eee;
+        }
+        .upload-item .filename {
+            font-weight: bold;
+        }
+        .upload-item.error {
+            color: #c0392b;
+        }
         .hidden {
             display: none;
         }
@@ -66,8 +78,8 @@
 
     <h2>Upload File with Compression</h2>
     <form id="uploadForm">
-        <label for="file">Select a File:</label>
-        <input type="file" id="file" required>
+        <label for="file">Select File(s):</label>
+        <input type="file" id="file" multiple required>
 
         <label for="compression">Compression Level (1-100):</label>
         <input type="number" id="compression" min="1" max="100" value="50">
@@ -122,6 +134,41 @@
             presetInfo.classList.remove("hidden");
         }
 
+        function escapeHtml(str) {
+            const div = document.createElement("div");
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        async function uploadOneFile(file, url, itemEl) {
+            const formData = new FormData();
+            formData.append("file", file);
+
+            try {
+                const response = await fetch(url, {
+                    method: "POST",
+                    body: formData
+                });
+
+                const text = await response.text();
+
+                if (!response.ok) {
+                    itemEl.classList.add("error");
+                    itemEl.innerHTML = `<span class="filename">${escapeHtml(file.name)}</span> — <strong>Error ${response.status}:</strong> ${escapeHtml(text)}`;
+                    return;
+                }
+
+                const result = JSON.parse(text);
+                const link = result.stored_path
+                    ? `<p><a href="${result.stored_path}" target="_blank" rel="noopener">${result.stored_path}</a></p>`
+                    : "";
+                itemEl.innerHTML = `<span class="filename">${escapeHtml(file.name)}</span>${link}`;
+            } catch (error) {
+                itemEl.classList.add("error");
+                itemEl.innerHTML = `<span class="filename">${escapeHtml(file.name)}</span> — <strong>Error:</strong> ${escapeHtml(error.message)}`;
+            }
+        }
+
         document.getElementById("uploadForm").addEventListener("submit", async function(event) {
             event.preventDefault();
 
@@ -131,7 +178,7 @@
             const responseBox = document.getElementById("response");
 
             if (!fileInput.files.length) {
-                alert("Please select a file to upload.");
+                alert("Please select at least one file to upload.");
                 return;
             }
 
@@ -156,32 +203,21 @@
             const url = new URL("upload/", BACKEND_URL);
             url.search = query.toString();
 
-            const formData = new FormData();
-            formData.append("file", fileInput.files[0]);
+            const files = Array.from(fileInput.files);
 
             submitBtn.disabled = true;
-            responseBox.innerHTML = "Uploading...";
+            responseBox.innerHTML = "";
+
+            const uploads = files.map((file) => {
+                const itemEl = document.createElement("div");
+                itemEl.className = "upload-item";
+                itemEl.innerHTML = `<span class="filename">${escapeHtml(file.name)}</span> — Uploading...`;
+                responseBox.appendChild(itemEl);
+                return uploadOneFile(file, url, itemEl);
+            });
 
             try {
-                const response = await fetch(url, {
-                    method: "POST",
-                    body: formData
-                });
-
-                const text = await response.text();
-
-                if (!response.ok) {
-                    responseBox.innerHTML = `<strong>Error ${response.status}:</strong> ${text}`;
-                    return;
-                }
-
-                const result = JSON.parse(text);
-                const link = result.stored_path
-                    ? `<p><a href="${result.stored_path}" target="_blank" rel="noopener">${result.stored_path}</a></p>`
-                    : "";
-                responseBox.innerHTML = `<strong>Response:</strong>${link}<pre>${JSON.stringify(result, null, 2)}</pre>`;
-            } catch (error) {
-                responseBox.innerHTML = `<strong>Error:</strong> ${error.message}`;
+                await Promise.all(uploads);
             } finally {
                 submitBtn.disabled = false;
             }
